@@ -1,0 +1,6 @@
+{
+  "name": "Web Spider Dashboard",
+  "description": "A high-fidelity control room and configuration manager for web crawler spiders, targeting video URL parsing, criteria filters, and performance metrics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
