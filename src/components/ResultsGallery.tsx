@@ -14,6 +14,8 @@ interface ResultsGalleryProps {
   onBulkCategorize: (ids: string[], folderId: string) => void;
   onAddFolder: (name: string, color: string, description?: string) => void;
   onDeleteFolder: (id: string) => void;
+  onQueueDownload?: (urlId: string) => void;
+  downloadItemIds?: string[];
 }
 
 export default function ResultsGallery({
@@ -24,8 +26,13 @@ export default function ResultsGallery({
   onDeleteUrl,
   onBulkCategorize,
   onAddFolder,
-  onDeleteFolder
+  onDeleteFolder,
+  onQueueDownload,
+  downloadItemIds = []
 }: ResultsGalleryProps) {
+  // Image error state fallback tracker
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
+
   // Input builders for adding folders
   const [showAddFold, setShowAddFold] = useState(false);
   const [newFoldName, setNewFoldName] = useState("");
@@ -262,15 +269,30 @@ export default function ResultsGallery({
                     )}
                   </button>
 
-                  <div className="relative aspect-video bg-slate-950 group">
+                  <div className="relative aspect-video bg-slate-955 group overflow-hidden">
                     {/* Placeholder image representation with themed search attributes */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent z-10" />
-                    <img 
-                      src={item.thumbnails[0]} 
-                      alt={item.title}
-                      referrerPolicy="no-referrer"
-                      className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-300"
-                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent z-10 pointer-events-none" />
+                    
+                    {imgErrors[item.id] || !item.thumbnails || !item.thumbnails[0] ? (
+                      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-950 flex flex-col items-center justify-center p-4">
+                        <div className="p-3 rounded-full bg-slate-950/80 border border-slate-800 text-indigo-400 group-hover:text-indigo-300 group-hover:scale-110 transition-all duration-300 shadow-inner">
+                          <FileVideo className="h-6 w-6 text-indigo-400" />
+                        </div>
+                        <span className="text-[9px] font-mono text-slate-500 mt-2 uppercase tracking-widest text-center truncate w-full max-w-[150px]">
+                          {item.channelName || "Video Stream"}
+                        </span>
+                      </div>
+                    ) : (
+                      <img 
+                        src={item.thumbnails[0]} 
+                        alt={item.title}
+                        referrerPolicy="no-referrer"
+                        onError={() => {
+                          setImgErrors(prev => ({ ...prev, [item.id]: true }));
+                        }}
+                        className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-300"
+                      />
+                    )}
 
                     {/* Meta stats in image */}
                     <div className="absolute bottom-2 left-2 z-20 flex flex-wrap gap-1">
@@ -288,6 +310,7 @@ export default function ResultsGallery({
                       </span>
                     </div>
                   </div>
+
 
                   <div className="p-3.5 flex-1 flex flex-col justify-between">
                     <div>
@@ -322,7 +345,7 @@ export default function ResultsGallery({
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-mono">
+                    <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs font-mono gap-1">
                       {/* Secure link extraction button */}
                       <a 
                         href={item.url} 
@@ -330,18 +353,34 @@ export default function ResultsGallery({
                         rel="noreferrer"
                         className="text-[10px] text-indigo-300 hover:text-indigo-100 font-bold bg-slate-950/80 hover:bg-indigo-950 px-2 rounded-lg py-1 border border-slate-850 hover:border-indigo-800 transition-all flex items-center gap-1"
                       >
-                        <FileVideo className="h-3 w-3 text-indigo-400" />
-                        Copy/Open Media Url
+                        <FileVideo className="h-3 w-3 text-indigo-400 shrink-0" />
+                        URL
                       </a>
+
+                      {onQueueDownload && (
+                        <button
+                          onClick={() => onQueueDownload(item.id)}
+                          disabled={downloadItemIds?.includes(`dl-${item.id}`)}
+                          className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all flex items-center gap-1 uppercase shrink-0 ${
+                            downloadItemIds?.includes(`dl-${item.id}`)
+                              ? "bg-slate-950 text-slate-500 border-slate-900 cursor-not-allowed"
+                              : "bg-indigo-600 hover:bg-slate-900 text-indigo-100 border-indigo-500 hover:border-indigo-400 shadow-md cursor-pointer"
+                          }`}
+                        >
+                          <DownloadIcon className="h-3 w-3" />
+                          {downloadItemIds?.includes(`dl-${item.id}`) ? "Queued" : "Grab"}
+                        </button>
+                      )}
 
                       <button 
                         onClick={() => onDeleteUrl(item.id)}
-                        className="p-1 hover:bg-rose-950/20 rounded text-slate-500 hover:text-rose-400"
+                        className="p-1 hover:bg-rose-950/20 rounded text-slate-500 hover:text-rose-400 cursor-pointer"
                         title="Delete record"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
+
                   </div>
                 </div>
               );

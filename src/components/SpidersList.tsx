@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   Play, Pause, RefreshCw, AlertTriangle, CheckCircle2, 
-  Trash2, FolderOpen, Calendar, KeywordIcon, UserCheck, Timer, ShieldAlert
+  Trash2, FolderOpen, Calendar, UserCheck, Timer, ShieldAlert
 } from "lucide-react";
 import { SpiderConfig, SpiderStatus } from "../types";
 

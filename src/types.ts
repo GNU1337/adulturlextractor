@@ -66,3 +66,21 @@ export interface CrawlMetricPoint {
   errors: number;
   memoryUsage: number;
 }
+
+export interface DownloadItem {
+  id: string;
+  url: string;
+  title: string;
+  status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed';
+  totalSizeMB: number;
+  downloadedMB: number;
+  progressPct: number;
+  speedKBps: number;
+  speedSum: number;
+  speedChecksCount: number;
+  playlistTitle?: string;
+  addedAt: string;
+  thumbnailUrl: string;
+  resolution: string;
+}
+

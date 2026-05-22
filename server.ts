@@ -232,7 +232,7 @@ const DEFAULT_URLS = [
 ];
 
 // Initialize Data Store
-let spiders = readJsonFile(SPIDERS_FILE, DEFAULT_SPIDERS);
+let spiders: any[] = readJsonFile(SPIDERS_FILE, DEFAULT_SPIDERS);
 let urls = readJsonFile(URLS_FILE, DEFAULT_URLS);
 let folders = readJsonFile(FOLDERS_FILE, DEFAULT_FOLDERS);
 
@@ -461,9 +461,297 @@ setInterval(() => {
 
 }, 4000);
 
+// ==========================================
+// SECTOR: DOWNLOAD QUEUE BACKGROUND SYSTEM
+// ==========================================
+
+export interface DownloadItem {
+  id: string;
+  url: string;
+  title: string;
+  status: "queued" | "downloading" | "paused" | "completed" | "failed";
+  totalSizeMB: number;
+  downloadedMB: number;
+  progressPct: number;
+  speedKBps: number;
+  speedSum: number;
+  speedChecksCount: number;
+  playlistTitle?: string;
+  addedAt: string;
+  thumbnailUrl: string;
+  resolution: string;
+}
+
+const DOWNLOADS_FILE = path.join(DATA_DIR, "downloads.json");
+let downloads = readJsonFile<DownloadItem[]>(DOWNLOADS_FILE, []);
+
+let downloadSecondsTracker = 0;
+
+// Download Queue Loop: executes once every 1000mS (1 second)
+setInterval(() => {
+  let changed = false;
+
+  // 1. Enforce max 5 concurrent downloads rule
+  const downloadingItems = downloads.filter(d => d.status === "downloading");
+  const activeCount = downloadingItems.length;
+
+  if (activeCount < 5) {
+    // Find queued items sorted by selection timestamp (oldest first)
+    const queuedItems = downloads
+      .filter(d => d.status === "queued")
+      .sort((a, b) => new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime());
+
+    const slotsAvailable = 5 - activeCount;
+    const startCount = Math.min(slotsAvailable, queuedItems.length);
+
+    for (let i = 0; i < startCount; i++) {
+      const target = downloads.find(d => d.id === queuedItems[i].id);
+      if (target) {
+        target.status = "downloading";
+        // Seed with a decent initial speed
+        target.speedKBps = Math.floor(Math.random() * 400) + 400;
+        target.speedSum = 0;
+        target.speedChecksCount = 0;
+        changed = true;
+      }
+    }
+  }
+
+  // 2. Increment downloaded megabytes for running streams
+  downloads = downloads.map(item => {
+    if (item.status === "downloading") {
+      changed = true;
+
+      // Simulate realistic fluctuation in download speed
+      // Introduce an occasional slower band (20% probability) to simulate server network congestion
+      const throttleFactor = Math.random() < 0.20 ? 0.22 : 1.0;
+      const speed = Math.floor((Math.random() * 1000 + 250) * throttleFactor);
+
+      item.speedKBps = speed;
+      item.speedSum += speed;
+      item.speedChecksCount += 1;
+
+      // Calculate chunk size in Megabytes and add to downloaded progress
+      const chunkMB = speed / 1024; // (1 second delta)
+      item.downloadedMB = Math.min(item.totalSizeMB, item.downloadedMB + chunkMB);
+      item.progressPct = Math.round((item.downloadedMB / item.totalSizeMB) * 100);
+
+      // Successfully complete when finished
+      if (item.downloadedMB >= item.totalSizeMB) {
+        item.status = "completed";
+        item.speedKBps = 0;
+        item.progressPct = 100;
+
+        pendingNotifications.push({
+          type: "success",
+          title: "Download Succeeded",
+          body: `Index file wrapper successfully completed: "${item.title}" (${item.totalSizeMB.toFixed(1)} MB) saved to storage.`,
+          time: new Date().toLocaleTimeString()
+        });
+      }
+    }
+    return item;
+  });
+
+  // 3. Mandatory 60mS speed regulator (average speed check rule)
+  downloadSecondsTracker += 1;
+  if (downloadSecondsTracker >= 60) {
+    downloadSecondsTracker = 0;
+
+    downloads = downloads.map(item => {
+      if (item.status === "downloading" && item.speedChecksCount > 0) {
+        const averageSpeed = item.speedSum / item.speedChecksCount;
+
+        // If average bandwidth fails below 350kb/S limit:
+        if (averageSpeed < 350) {
+          item.status = "queued"; // Pause & Re-queue back in pool
+          item.speedKBps = 0;
+          item.speedSum = 0;
+          item.speedChecksCount = 0;
+          item.addedAt = new Date().toISOString(); // Place at the bottom of queue order
+          changed = true;
+
+          pendingNotifications.push({
+            type: "error",
+            title: "Download Slow: Re-queued",
+            body: `Crawler stream "${item.title}" paused. Average speed was ${averageSpeed.toFixed(1)} KB/s (under 350 KB/s threshold). Appended to bottom of queue.`,
+            time: new Date().toLocaleTimeString()
+          });
+        }
+      }
+      return item;
+    });
+  }
+
+  if (changed) {
+    writeJsonFile(DOWNLOADS_FILE, downloads);
+  }
+}, 1000);
+
 // Set up server
 const app = express();
 app.use(express.json());
+
+// ==========================================
+// SECTOR: DOWNLOADS EXPRESS ENDPOINTS
+// ==========================================
+
+// GET downloads catalog
+app.get("/api/downloads", (req, res) => {
+  res.json(downloads);
+});
+
+// POST to queue single URL for download
+app.post("/api/downloads/queue", (req, res) => {
+  const { urlId } = req.body;
+  if (!urlId) {
+    return res.status(400).json({ error: "Required fields: urlId" });
+  }
+
+  const scrapedInfo = urls.find(u => u.id === urlId);
+  if (!scrapedInfo) {
+    return res.status(404).json({ error: "Saved URL not found." });
+  }
+
+  // Check if already in queue or downloading
+  const existing = downloads.find(d => d.id === `dl-${urlId}`);
+  if (existing && ["queued", "downloading"].includes(existing.status)) {
+    return res.status(400).json({ error: "URL is already queued or downloading." });
+  }
+
+  // Create new download record
+  const newDownload: DownloadItem = {
+    id: `dl-${urlId}`,
+    url: scrapedInfo.url,
+    title: scrapedInfo.title,
+    status: "queued",
+    totalSizeMB: scrapedInfo.fileSizeMB || parseFloat((Math.random() * 600 + 150).toFixed(1)),
+    downloadedMB: 0,
+    progressPct: 0,
+    speedKBps: 0,
+    speedSum: 0,
+    speedChecksCount: 0,
+    addedAt: new Date().toISOString(),
+    thumbnailUrl: scrapedInfo.thumbnails[0] || "",
+    resolution: scrapedInfo.resolution || "1080p"
+  };
+
+  downloads.push(newDownload);
+  writeJsonFile(DOWNLOADS_FILE, downloads);
+
+  pendingNotifications.push({
+    type: "info",
+    title: "Video Queued",
+    body: `"${newDownload.title}" successfully added to the download queue.`,
+    time: new Date().toLocaleTimeString()
+  });
+
+  res.status(201).json(newDownload);
+});
+
+// POST to queue a playlist link
+app.post("/api/downloads/playlist", (req, res) => {
+  const { playlistUrl } = req.body;
+  if (!playlistUrl) {
+    return res.status(400).json({ error: "Required fields: playlistUrl" });
+  }
+
+  let playlistTitle = "Unknown Album Playlist";
+  try {
+    const urlObj = new URL(playlistUrl);
+    playlistTitle = `Playlist: ${urlObj.pathname.split("/").pop() || "Index Channel"} Archive`;
+  } catch (e) {
+    playlistTitle = `Custom Playlist URL Archive`;
+  }
+
+  // Extract a mock set of 4-6 video segments representing the playlist contents
+  const videoThemes = [
+    { title: "Sailing & Coral Island Exploration Vol 1", res: "1080p", size: 480.2 },
+    { title: "Sailing & Coral Island Exploration Vol 2", res: "1080p", size: 520.4 },
+    { title: "Sailing & Coral Island Exploration Vol 3", res: "1080p", size: 460.9 },
+    { title: "Lagoon Anchor Point Sunset Walkthrough", res: "720p", size: 310.5 },
+    { title: "Tropical Cove Amateur Drone Footage", res: "1080p", size: 680.1 }
+  ];
+
+  const addedDownloads: DownloadItem[] = [];
+
+  videoThemes.forEach((item, idx) => {
+    const streamId = `pl-${Date.now()}-${idx}`;
+    const newDownload: DownloadItem = {
+      id: streamId,
+      url: `${playlistUrl}/clip-${idx + 1}`,
+      title: item.title,
+      status: "queued",
+      totalSizeMB: item.size,
+      downloadedMB: 0,
+      progressPct: 0,
+      speedKBps: 0,
+      speedSum: 0,
+      speedChecksCount: 0,
+      playlistTitle: playlistTitle,
+      addedAt: new Date(Date.now() + idx).toISOString(), // preserve relative ordering
+      thumbnailUrl: `https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800`,
+      resolution: item.res as any
+    };
+
+    downloads.push(newDownload);
+    addedDownloads.push(newDownload);
+  });
+
+  writeJsonFile(DOWNLOADS_FILE, downloads);
+
+  pendingNotifications.push({
+    type: "info",
+    title: "Playlist Queued",
+    body: `Ingested playlist: "${playlistTitle}". Added ${addedDownloads.length} videos to the download queue.`,
+    time: new Date().toLocaleTimeString()
+  });
+
+  res.status(201).json({ success: true, playlistTitle, itemsCount: addedDownloads.length });
+});
+
+// POST to pause a download
+app.post("/api/downloads/:id/pause", (req, res) => {
+  const dlId = req.params.id;
+  const dl = downloads.find(d => d.id === dlId);
+  if (!dl) {
+    return res.status(404).json({ error: "Download record not found." });
+  }
+
+  dl.status = "paused";
+  dl.speedKBps = 0;
+  dl.speedSum = 0;
+  dl.speedChecksCount = 0;
+
+  writeJsonFile(DOWNLOADS_FILE, downloads);
+  res.json(dl);
+});
+
+// POST to resume / re-queue a download
+app.post("/api/downloads/:id/resume", (req, res) => {
+  const dlId = req.params.id;
+  const dl = downloads.find(d => d.id === dlId);
+  if (!dl) {
+    return res.status(404).json({ error: "Download record not found." });
+  }
+
+  dl.status = "queued";
+  dl.speedKBps = 0;
+  dl.speedSum = 0;
+  dl.speedChecksCount = 0;
+  dl.addedAt = new Date().toISOString(); // moves it to the bottom of the FIFO queue
+
+  writeJsonFile(DOWNLOADS_FILE, downloads);
+  res.json(dl);
+});
+
+// DELETE a download from list
+app.delete("/api/downloads/:id", (req, res) => {
+  const dlId = req.params.id;
+  downloads = downloads.filter(d => d.id !== dlId);
+  writeJsonFile(DOWNLOADS_FILE, downloads);
+  res.json({ success: true });
+});
 
 // Load UI helper scripts first
 

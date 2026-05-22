@@ -2,14 +2,16 @@ import React, { useState, useEffect } from "react";
 import { 
   Plus, Settings, Database, FolderOpen, Activity, AlertCircle, 
   HelpCircle, ShieldCheck, HeartPulse, RefreshCw, Terminal, 
-  Sparkles, Layers, Sliders, PlayCircle, Eye, LogOut, CheckCircle, Search, Trash2
+  Sparkles, Layers, Sliders, PlayCircle, Eye, LogOut, CheckCircle, Search, Trash2,
+  DownloadIcon
 } from "lucide-react";
-import { SpiderConfig, SpiderStatus, ScrapedUrl, Folder, CrawlMetricPoint } from "./types";
+import { SpiderConfig, SpiderStatus, ScrapedUrl, Folder, CrawlMetricPoint, DownloadItem } from "./types";
 import SpidersList from "./components/SpidersList";
 import SpiderForm from "./components/SpiderForm";
 import ResultsGallery from "./components/ResultsGallery";
 import PerformanceChart from "./components/PerformanceChart";
 import NotificationPanel from "./components/NotificationPanel";
+import DownloadCenter from "./components/DownloadCenter";
 
 export default function App() {
   // Spiders state
@@ -20,6 +22,10 @@ export default function App() {
   // Realtime Chart Metrics
   const [metrics, setMetrics] = useState<CrawlMetricPoint[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+
+  // Downloads view state
+  const [downloads, setDownloads] = useState<DownloadItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'spiders' | 'downloads'>('spiders');
 
   // Selected state indices
   const [selectedFolderId, setSelectedFolderId] = useState("f-all");
@@ -64,6 +70,12 @@ export default function App() {
       if (nRes.ok) {
         const data = await nRes.json();
         setNotifications(data);
+      }
+
+      const dlRes = await fetch("/api/downloads");
+      if (dlRes.ok) {
+        const data = await dlRes.json();
+        setDownloads(data);
       }
 
       await fetchUrls();
@@ -120,6 +132,10 @@ export default function App() {
       fetch("/api/notifications")
         .then(res => res.json())
         .then(data => setNotifications(data));
+
+      fetch("/api/downloads")
+        .then(res => res.json())
+        .then(data => setDownloads(data));
 
       fetchUrls();
     }, 4000);
@@ -260,6 +276,88 @@ export default function App() {
     }
   };
 
+  const handleQueueDownload = async (urlId: string) => {
+    try {
+      const res = await fetch("/api/downloads/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urlId })
+      });
+      if (res.ok) {
+        const dlRes = await fetch("/api/downloads");
+        if (dlRes.ok) {
+          const dlData = await dlRes.json();
+          setDownloads(dlData);
+        }
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Failed to enqueue download.");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleQueuePlaylist = async (playlistUrl: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/downloads/playlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playlistUrl })
+      });
+      if (res.ok) {
+        const dlRes = await fetch("/api/downloads");
+        if (dlRes.ok) {
+          const dlData = await dlRes.json();
+          setDownloads(dlData);
+        }
+        return true;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return false;
+  };
+
+  const handlePauseDownload = async (id: string) => {
+    try {
+      await fetch(`/api/downloads/${id}/pause`, { method: "POST" });
+      const dlRes = await fetch("/api/downloads");
+      if (dlRes.ok) {
+        const dlData = await dlRes.json();
+        setDownloads(dlData);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleResumeDownload = async (id: string) => {
+    try {
+      await fetch(`/api/downloads/${id}/resume`, { method: "POST" });
+      const dlRes = await fetch("/api/downloads");
+      if (dlRes.ok) {
+        const dlData = await dlRes.json();
+        setDownloads(dlData);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteDownload = async (id: string) => {
+    try {
+      await fetch(`/api/downloads/${id}`, { method: "DELETE" });
+      const dlRes = await fetch("/api/downloads");
+      if (dlRes.ok) {
+        const dlData = await dlRes.json();
+        setDownloads(dlData);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleClearNotifications = async () => {
     try {
       await fetch("/api/notifications/clear", { method: "POST" });
@@ -318,12 +416,46 @@ export default function App() {
               setEditingConfig(null);
               setShowDeployForm(prev => !prev);
             }}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl tracking-wider uppercase transition-all shadow-lg shadow-indigo-600/20"
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl tracking-wider uppercase transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
           >
             <Plus className="h-4 w-4" /> Deploy Crawler
           </button>
         </div>
       </header>
+
+      {/* View Choice Navigation Strip */}
+      <div className="bg-slate-900 border-b border-indigo-950/40 px-6 py-2">
+        <div className="max-w-7xl mx-auto flex items-center gap-4">
+          <button
+            onClick={() => setActiveTab('spiders')}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'spiders'
+                ? 'bg-slate-950 text-indigo-400 border border-slate-800'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/50'
+            }`}
+          >
+            <Sliders className="h-4 w-4 text-indigo-500" />
+            Configured Spiders
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('downloads')}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer relative ${
+              activeTab === 'downloads'
+                ? 'bg-slate-950 text-indigo-400 border border-slate-800'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/50'
+            }`}
+          >
+            <DownloadIcon className="h-4 w-4 text-indigo-500" />
+            System Download Queue
+            {downloads.filter(d => ["queued", "downloading"].includes(d.status)).length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[8px] font-mono font-bold text-white tracking-normal shadow">
+                {downloads.filter(d => ["queued", "downloading"].includes(d.status)).length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
 
       {/* Main Grid Area */}
       <main className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
@@ -347,7 +479,7 @@ export default function App() {
         />
 
         {/* Form Deployment section */}
-        {showDeployForm && (
+        {showDeployForm && activeTab === 'spiders' && (
           <div className="animate-in fade-in slide-in-from-top duration-300">
             <SpiderForm 
               folders={folders}
@@ -361,94 +493,110 @@ export default function App() {
           </div>
         )}
 
-        {/* Dynamic Spiders active & idle grids */}
-        <div className="space-y-6">
-          {/* Active crawlers with live metrics */}
-          <SpidersList 
-            spiders={spiders}
-            activeOnly={true}
-            onStart={handleStart}
-            onPause={handlePause}
-            onResume={handleResume}
-            onStop={handleStop}
-            onReset={handleReset}
-            onDelete={handleDeleteSpider}
-            onConfigureEdit={(config) => {
-              setEditingConfig(config);
-              setShowDeployForm(true);
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-            onSelectSpiderLogs={(item) => setViewLogsSpider(item)}
-          />
+        {/* Tab-driven layout rendering */}
+        {activeTab === 'spiders' ? (
+          <>
+            {/* Dynamic Spiders active & idle grids */}
+            <div className="space-y-6">
+              {/* Active crawlers with live metrics */}
+              <SpidersList 
+                spiders={spiders}
+                activeOnly={true}
+                onStart={handleStart}
+                onPause={handlePause}
+                onResume={handleResume}
+                onStop={handleStop}
+                onReset={handleReset}
+                onDelete={handleDeleteSpider}
+                onConfigureEdit={(config) => {
+                  setEditingConfig(config);
+                  setShowDeployForm(true);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                onSelectSpiderLogs={(item) => setViewLogsSpider(item)}
+              />
 
-          {/* Idle configured Spiders list */}
-          <SpidersList 
-            spiders={spiders}
-            activeOnly={false}
-            onStart={handleStart}
-            onPause={handlePause}
-            onResume={handleResume}
-            onStop={handleStop}
-            onReset={handleReset}
-            onDelete={handleDeleteSpider}
-            onConfigureEdit={(config) => {
-              setEditingConfig(config);
-              setShowDeployForm(true);
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-            onSelectSpiderLogs={(item) => setViewLogsSpider(item)}
-          />
-        </div>
+              {/* Idle configured Spiders list */}
+              <SpidersList 
+                spiders={spiders}
+                activeOnly={false}
+                onStart={handleStart}
+                onPause={handlePause}
+                onResume={handleResume}
+                onStop={handleStop}
+                onReset={handleReset}
+                onDelete={handleDeleteSpider}
+                onConfigureEdit={(config) => {
+                  setEditingConfig(config);
+                  setShowDeployForm(true);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                onSelectSpiderLogs={(item) => setViewLogsSpider(item)}
+              />
+            </div>
 
-        {/* Selected spider runtime log modal segment */}
-        {viewLogsSpider && (
-          <div className="bg-slate-900 border border-indigo-950 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Terminal className="h-5 w-5 text-indigo-400" />
-                <h4 className="font-bold text-xs tracking-widest uppercase text-slate-200">
-                  CRITICAL RUNTIME DIAGNOSTIC LOGS: {viewLogsSpider.config.name}
-                </h4>
+            {/* Selected spider runtime log modal segment */}
+            {viewLogsSpider && (
+              <div className="bg-slate-900 border border-indigo-950 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="h-5 w-5 text-indigo-400" />
+                    <h4 className="font-bold text-xs tracking-widest uppercase text-slate-200">
+                      CRITICAL RUNTIME DIAGNOSTIC LOGS: {viewLogsSpider.config.name}
+                    </h4>
+                  </div>
+                  <button 
+                    onClick={() => setViewLogsSpider(null)}
+                    className="text-xs font-bold text-rose-400 hover:text-rose-300"
+                  >
+                    Close Trace Log
+                  </button>
+                </div>
+
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-950 font-mono text-[11px] h-48 overflow-y-auto space-y-1 text-slate-300">
+                  {viewLogsSpider.status.logs.length === 0 ? (
+                    <div className="text-slate-600 italic">No logs initialized yet. Trigger run...</div>
+                  ) : (
+                    viewLogsSpider.status.logs.map((log, idx) => {
+                      let logColor = "text-slate-400";
+                      if (log.includes("[SAVED]")) logColor = "text-emerald-400 font-bold";
+                      if (log.includes("[WARNING]")) logColor = "text-amber-400";
+                      if (log.includes("[CRITICAL]") || log.includes("[FILTERED]")) logColor = "text-rose-400";
+                      if (log.includes("[SYSTEM]")) logColor = "text-indigo-400";
+
+                      return (
+                        <div key={idx} className={`${logColor} hover:bg-slate-900/40 p-0.5 rounded transition-colors`}>
+                          {log}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                
+                <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
+                  <span>BUFFER THREADING: ACTIVE SECURE CLOUD GATEWAY</span>
+                  <span>LINES TRACKED: {viewLogsSpider.status.logs.length}</span>
+                </div>
               </div>
-              <button 
-                onClick={() => setViewLogsSpider(null)}
-                className="text-xs font-bold text-rose-400 hover:text-rose-300"
-              >
-                Close Trace Log
-              </button>
-            </div>
+            )}
 
-            <div className="bg-slate-950 p-4 rounded-xl border border-slate-950 font-mono text-[11px] h-48 overflow-y-auto space-y-1 text-slate-300">
-              {viewLogsSpider.status.logs.length === 0 ? (
-                <div className="text-slate-600 italic">No logs initialized yet. Trigger run...</div>
-              ) : (
-                viewLogsSpider.status.logs.map((log, idx) => {
-                  let logColor = "text-slate-400";
-                  if (log.includes("[SAVED]")) logColor = "text-emerald-400 font-bold";
-                  if (log.includes("[WARNING]")) logColor = "text-amber-400";
-                  if (log.includes("[CRITICAL]") || log.includes("[FILTERED]")) logColor = "text-rose-400";
-                  if (log.includes("[SYSTEM]")) logColor = "text-indigo-400";
-
-                  return (
-                    <div key={idx} className={`${logColor} hover:bg-slate-900/40 p-0.5 rounded transition-colors`}>
-                      {log}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            
-            <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
-              <span>BUFFER THREADING: ACTIVE SECURE CLOUD GATEWAY</span>
-              <span>LINES TRACKED: {viewLogsSpider.status.logs.length}</span>
-            </div>
+            {/* Realtime Performance Graph Grid */}
+            <section>
+              <PerformanceChart metrics={metrics} />
+            </section>
+          </>
+        ) : (
+          <div className="animate-in fade-in duration-300">
+            <DownloadCenter 
+              downloads={downloads}
+              onPause={handlePauseDownload}
+              onResume={handleResumeDownload}
+              onDelete={handleDeleteDownload}
+              onQueuePlaylist={handleQueuePlaylist}
+              syncData={syncData}
+            />
           </div>
         )}
-
-        {/* Realtime Performance Graph Grid */}
-        <section>
-          <PerformanceChart metrics={metrics} />
-        </section>
 
         {/* Ingested media library shelf */}
         <section className="space-y-4">
@@ -523,6 +671,8 @@ export default function App() {
             onBulkCategorize={handleBulkCategorize}
             onAddFolder={handleAddFolder}
             onDeleteFolder={handleDeleteFolder}
+            onQueueDownload={handleQueueDownload}
+            downloadItemIds={downloads.map(dl => dl.id)}
           />
         </section>
       </main>
