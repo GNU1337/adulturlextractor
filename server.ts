@@ -176,7 +176,7 @@ const DEFAULT_URLS = [
     resolution: "1080p",
     uploadDate: "2026-05-12T14:22:00Z",
     pornstars: ["Eva", "John"],
-    thumbnails: ["https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800"],
+    thumbnails: [`https://image.pollinations.ai/prompt/${encodeURIComponent("Sunny Beach Vacation Vlog")}?width=800&height=450&nologo=true`],
     channelName: "Eva & John Vlogs",
     fileSizeMB: 480.5,
     extractedAt: "2026-05-20T12:04:10Z"
@@ -192,7 +192,7 @@ const DEFAULT_URLS = [
     resolution: "1080p",
     uploadDate: "2026-05-19T09:12:00Z",
     pornstars: ["Mark"],
-    thumbnails: ["https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800"],
+    thumbnails: [`https://image.pollinations.ai/prompt/${encodeURIComponent("Luxury Resort Couple Relaxing")}?width=800&height=450&nologo=true`],
     channelName: "Extreme Adventure",
     fileSizeMB: 840.2,
     extractedAt: "2026-05-20T18:41:20Z"
@@ -208,7 +208,7 @@ const DEFAULT_URLS = [
     resolution: "720p",
     uploadDate: "2026-05-18T17:34:00Z",
     pornstars: ["Eva", "John"],
-    thumbnails: ["https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800"],
+    thumbnails: [`https://image.pollinations.ai/prompt/${encodeURIComponent("Tropical Lagoon Swim")}?width=800&height=450&nologo=true`],
     channelName: "Eva & John Vlogs",
     fileSizeMB: 280.1,
     extractedAt: "2026-05-20T12:35:15Z"
@@ -224,7 +224,7 @@ const DEFAULT_URLS = [
     resolution: "1080p",
     uploadDate: "2026-05-15T11:05:00Z",
     pornstars: [],
-    thumbnails: ["https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800"],
+    thumbnails: [`https://image.pollinations.ai/prompt/${encodeURIComponent("Sailing Adventure")}?width=800&height=450&nologo=true`],
     channelName: "Holiday Couple Official",
     fileSizeMB: 610.4,
     extractedAt: "2026-05-20T18:19:40Z"
@@ -371,7 +371,7 @@ setInterval(() => {
               resolution: resolution as any,
               uploadDate: new Date(Date.now() - Math.random() * 10 * 24 * 60 * 60 * 1000).toISOString(),
               pornstars: chosenActors,
-              thumbnails: ["https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800"],
+              thumbnails: [`https://image.pollinations.ai/prompt/${encodeURIComponent(title)}?width=800&height=450&nologo=true`],
               channelName: creator,
               fileSizeMB: Math.round(duration * 0.35 * 10) / 10,
               extractedAt: new Date().toISOString()
@@ -690,7 +690,7 @@ app.post("/api/downloads/playlist", (req, res) => {
       speedChecksCount: 0,
       playlistTitle: playlistTitle,
       addedAt: new Date(Date.now() + idx).toISOString(), // preserve relative ordering
-      thumbnailUrl: `https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800`,
+      thumbnailUrl: `https://image.pollinations.ai/prompt/${encodeURIComponent(playlistTitle + " video " + Math.floor(Math.random() * 100))}?width=800&height=450&nologo=true`,
       resolution: item.res as any
     };
 

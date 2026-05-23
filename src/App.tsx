@@ -414,7 +414,9 @@ export default function App() {
           <button 
             onClick={() => {
               setEditingConfig(null);
-              setShowDeployForm(prev => !prev);
+              setShowDeployForm(true);
+              setActiveTab('spiders');
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl tracking-wider uppercase transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
           >
