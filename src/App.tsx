@@ -95,16 +95,20 @@ export default function App() {
     }
   };
 
-  // Re-fetch parameters when selection indices shift
+  // 1. Initial Sync on mount
+  useEffect(() => {
+    syncData();
+  }, []);
+
+  // 2. Filter-based sync for URLs (updates when user interacts with filters)
   useEffect(() => {
     fetchUrls();
   }, [selectedFolderId, searchQuery, resolutionFilter, minDurationFilter, maxDurationFilter]);
 
-  // Periodic poll to show realtime crawl speeds, page changes and updates
+  // 3. Periodic Background Sync (Polling) - Stable interval
   useEffect(() => {
-    syncData();
     const interval = setInterval(() => {
-      // Re-fetch dynamic stats silent
+      // Re-fetch dynamic stats silent without triggering the global 'syncing' spinner
       fetch("/api/spiders")
         .then(res => res.json())
         .then(data => {
@@ -114,21 +118,27 @@ export default function App() {
             const current = data.find((s: any) => s.config.id === viewLogsSpider.config.id);
             if (current) setViewLogsSpider(current);
           }
-        });
+        })
+        .catch(() => {});
 
       fetch("/api/notifications")
         .then(res => res.json())
-        .then(data => setNotifications(data));
+        .then(data => setNotifications(data))
+        .catch(() => {});
 
       fetch("/api/downloads")
         .then(res => res.json())
-        .then(data => setDownloads(data));
+        .then(data => setDownloads(data))
+        .catch(() => {});
 
-      fetchUrls();
+      // Quietly update URLs if on the videos tab to see live crawl incoming results
+      if (activeTab === 'videos') {
+        fetchUrls().catch(() => {});
+      }
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [selectedFolderId]);
+  }, [activeTab, viewLogsSpider?.config.id, selectedFolderId, searchQuery, resolutionFilter, minDurationFilter, maxDurationFilter]);
 
   // Deploy / Update Spider Trigger
   const handleSaveSpider = async (configData: any) => {
@@ -384,7 +394,9 @@ export default function App() {
           <button 
             onClick={() => {
               setEditingConfig(null);
-              setShowDeployForm(prev => !prev);
+              setShowDeployForm(true);
+              setActiveTab('spiders');
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg tracking-wider uppercase transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
           >
