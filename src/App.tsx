@@ -5,11 +5,10 @@ import {
   Sparkles, Layers, Sliders, PlayCircle, Eye, LogOut, CheckCircle, Search, Trash2,
   DownloadIcon
 } from "lucide-react";
-import { SpiderConfig, SpiderStatus, ScrapedUrl, Folder, CrawlMetricPoint, DownloadItem } from "./types";
+import { SpiderConfig, SpiderStatus, ScrapedUrl, Folder, DownloadItem } from "./types";
 import SpidersList from "./components/SpidersList";
 import SpiderForm from "./components/SpiderForm";
 import ResultsGallery from "./components/ResultsGallery";
-import PerformanceChart from "./components/PerformanceChart";
 import NotificationPanel from "./components/NotificationPanel";
 import DownloadCenter from "./components/DownloadCenter";
 
@@ -19,13 +18,11 @@ export default function App() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [urls, setUrls] = useState<ScrapedUrl[]>([]);
   
-  // Realtime Chart Metrics
-  const [metrics, setMetrics] = useState<CrawlMetricPoint[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
 
   // Downloads view state
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
-  const [activeTab, setActiveTab] = useState<'spiders' | 'downloads'>('spiders');
+  const [activeTab, setActiveTab] = useState<'spiders' | 'downloads' | 'videos'>('spiders');
 
   // Selected state indices
   const [selectedFolderId, setSelectedFolderId] = useState("f-all");
@@ -58,12 +55,6 @@ export default function App() {
       if (fRes.ok) {
         const data = await fRes.json();
         setFolders(data);
-      }
-
-      const mRes = await fetch("/api/metrics");
-      if (mRes.ok) {
-        const data = await mRes.json();
-        setMetrics(data);
       }
 
       const nRes = await fetch("/api/notifications");
@@ -124,10 +115,6 @@ export default function App() {
             if (current) setViewLogsSpider(current);
           }
         });
-
-      fetch("/api/metrics")
-        .then(res => res.json())
-        .then(data => setMetrics(data));
 
       fetch("/api/notifications")
         .then(res => res.json())
@@ -376,37 +363,20 @@ export default function App() {
             <Activity className="h-6 w-6 text-indigo-400 animate-pulse" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-black tracking-tight uppercase text-indigo-50">
-                SPIDER CONTROL ROOM
-              </h1>
-              <span className="text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800/60 px-2 py-0.5 rounded font-bold uppercase tracking-widest">
-                STAGE ONE
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5 font-medium">
-              Autonomous Extraction Node, Criteria Aggregators & Multi-Platform Web Scrubbers
+            <h1 className="text-xl font-bold tracking-tight text-slate-50">
+              Spider Control Room
+            </h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Manage your autonomous crawlers and harvested media library.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-4 bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-800/80">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-xs text-slate-400">PROXY: <strong className="text-slate-200">ACTIVE ROTATOR</strong></span>
-            </div>
-            <div className="h-4 w-[1px] bg-slate-800" />
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-slate-400">HOST: <strong className="text-indigo-400">0.0.0.0:3000</strong></span>
-            </div>
-          </div>
-
           <button 
             onClick={syncData}
             disabled={syncing}
-            className={`p-2.5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition-all ${syncing ? "animate-spin" : ""}`}
-            title="Force telemetry rebuild"
+            className={`p-2 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-lg transition-all ${syncing ? "animate-spin" : ""}`}
           >
             <RefreshCw className="h-4 w-4 text-slate-300" />
           </button>
@@ -416,7 +386,7 @@ export default function App() {
               setEditingConfig(null);
               setShowDeployForm(prev => !prev);
             }}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl tracking-wider uppercase transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg tracking-wider uppercase transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
           >
             <Plus className="h-4 w-4" /> Deploy Crawler
           </button>
@@ -454,24 +424,23 @@ export default function App() {
               </span>
             )}
           </button>
+
+          <button
+            onClick={() => setActiveTab('videos')}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'videos'
+                ? 'bg-slate-950 text-indigo-400 border border-slate-800'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/50'
+            }`}
+          >
+            <PlayCircle className="h-4 w-4 text-indigo-500" />
+            Saved Media Library
+          </button>
         </div>
       </div>
 
       {/* Main Grid Area */}
       <main className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
-        {/* Dynamic Warning Alert banner for adult content scraper disclaimer */}
-        <div className="bg-amber-950/20 border border-amber-900/40 p-4 rounded-2xl text-xs text-amber-300 leading-relaxed flex items-start gap-4">
-          <AlertCircle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-bold text-slate-200 mb-1">
-              PROCEED WITH ETHICAL DATA PARSING PRACTICE
-            </h4>
-            <p className="text-amber-400/90 leading-relaxed max-w-5xl">
-              This node compiles scraping agents configured with anti-scraping mitigation bypass mechanics (headers, dynamic delays, user-agents). Please utilize proper delays (<strong className="text-amber-200">&gt; 1 sec</strong>) when scrubbing heavy streaming platforms. Video URLs extracted represent streaming targets configured by user filters.
-            </p>
-          </div>
-        </div>
-
         {/* System Alert Notification Panel drawer */}
         <NotificationPanel 
           notifications={notifications} 
@@ -579,13 +548,8 @@ export default function App() {
                 </div>
               </div>
             )}
-
-            {/* Realtime Performance Graph Grid */}
-            <section>
-              <PerformanceChart metrics={metrics} />
-            </section>
           </>
-        ) : (
+        ) : activeTab === 'downloads' ? (
           <div className="animate-in fade-in duration-300">
             <DownloadCenter 
               downloads={downloads}
@@ -596,96 +560,96 @@ export default function App() {
               syncData={syncData}
             />
           </div>
-        )}
+        ) : (
+          /* Ingested media library shelf */
+          <section className="space-y-4 animate-in fade-in duration-300">
+            <div className="border-b border-indigo-950 pb-2">
+              <h3 className="font-bold text-xs tracking-widest uppercase text-indigo-400 border-l-4 border-indigo-600 pl-3">
+                Saved Media Library
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Browse and manage video stream links classified from target crawlers.
+              </p>
+            </div>
 
-        {/* Ingested media library shelf */}
-        <section className="space-y-4">
-          <div className="border-b border-indigo-950 pb-2">
-            <h3 className="font-bold text-xs tracking-widest uppercase text-indigo-400">
-              📁 INGESTED TARGETS MEDIA HARVEST REPOSITORY
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Browse video stream links classified into target folders matching custom spider criteria.
-            </p>
-          </div>
+            {/* Catalog Filters Bar */}
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Search Keywords</label>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="e.g. beach, Eva, vacation"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-200 outline-none"
+                  />
+                  <Search className="absolute right-2.5 top-2 h-3.5 w-3.5 text-slate-500" />
+                </div>
+              </div>
 
-          {/* Catalog Filters Bar */}
-          <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Search Keywords</label>
-              <div className="relative">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Target Resolution</label>
+                <select 
+                  value={resolutionFilter}
+                  onChange={e => setResolutionFilter(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-slate-300 outline-none"
+                >
+                  <option value="">All Formats & Pixels</option>
+                  <option value="1080p">1080p Full-HD</option>
+                  <option value="720p">720p HD</option>
+                  <option value="480p">480p Media Standard</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Min Duration (Mins)</label>
                 <input 
-                  type="text" 
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="e.g. beach, Eva, vacation"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-200 outline-none"
+                  type="number" 
+                  value={minDurationFilter}
+                  onChange={e => setMinDurationFilter(e.target.value)}
+                  placeholder="No limit"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 outline-none"
                 />
-                <Search className="absolute right-2.5 top-2 h-3.5 w-3.5 text-slate-500" />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Max Duration (Mins)</label>
+                <input 
+                  type="number" 
+                  value={maxDurationFilter}
+                  onChange={e => setMaxDurationFilter(e.target.value)}
+                  placeholder="No limit"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 outline-none"
+                />
               </div>
             </div>
 
-            <div>
-              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Target Resolution</label>
-              <select 
-                value={resolutionFilter}
-                onChange={e => setResolutionFilter(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-slate-300 outline-none"
-              >
-                <option value="">All Formats & Pixels</option>
-                <option value="1080p">1080p Full-HD</option>
-                <option value="720p">720p HD</option>
-                <option value="480p">480p Media Standard</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Min Duration (Mins)</label>
-              <input 
-                type="number" 
-                value={minDurationFilter}
-                onChange={e => setMinDurationFilter(e.target.value)}
-                placeholder="No limit"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Max Duration (Mins)</label>
-              <input 
-                type="number" 
-                value={maxDurationFilter}
-                onChange={e => setMaxDurationFilter(e.target.value)}
-                placeholder="No limit"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 outline-none"
-              />
-            </div>
-          </div>
-
-          <ResultsGallery 
-            urls={urls}
-            folders={folders}
-            selectedFolderId={selectedFolderId}
-            onSelectFolder={(id) => setSelectedFolderId(id)}
-            onDeleteUrl={handleDeleteUrl}
-            onBulkCategorize={handleBulkCategorize}
-            onAddFolder={handleAddFolder}
-            onDeleteFolder={handleDeleteFolder}
-            onQueueDownload={handleQueueDownload}
-            downloadItemIds={downloads.map(dl => dl.id)}
-          />
-        </section>
+            <ResultsGallery 
+              urls={urls}
+              folders={folders}
+              selectedFolderId={selectedFolderId}
+              onSelectFolder={(id) => setSelectedFolderId(id)}
+              onDeleteUrl={handleDeleteUrl}
+              onBulkCategorize={handleBulkCategorize}
+              onAddFolder={handleAddFolder}
+              onDeleteFolder={handleDeleteFolder}
+              onQueueDownload={handleQueueDownload}
+              downloadItemIds={downloads.map(dl => dl.id)}
+            />
+          </section>
+        )}
       </main>
 
-      {/* Control Room Footer metrics */}
-      <footer className="mt-12 bg-slate-900 border-t border-indigo-950 py-6 px-6 text-slate-500 text-xs">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 font-mono">
+      <footer className="mt-auto bg-slate-900 border-t border-slate-800 py-8 px-6 text-slate-500 text-xs">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
-            <span>SYSTEM CONTEXT ROOT: SERVER SIDE APIS OPERATIONAL ON PORT 3000</span>
+            <span className="font-bold text-slate-400">Spider Control Room</span>
+            <span className="mx-2">•</span>
+            <span>Harvesting Tool</span>
           </div>
           <div className="flex gap-4">
-            <span className="text-emerald-500 font-bold">● NODE INSTANCES READY</span>
-            <span>Uptime: 2026-05-20 UTC</span>
+            <span>2026</span>
           </div>
         </div>
       </footer>
