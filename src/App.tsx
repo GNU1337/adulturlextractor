@@ -3,7 +3,7 @@ import {
   Plus, Settings, Database, FolderOpen, Activity, AlertCircle, 
   HelpCircle, ShieldCheck, HeartPulse, RefreshCw, Terminal, 
   Sparkles, Layers, Sliders, PlayCircle, Eye, LogOut, CheckCircle, Search, Trash2,
-  DownloadIcon, Library, X
+  DownloadIcon
 } from "lucide-react";
 import { SpiderConfig, SpiderStatus, ScrapedUrl, Folder, CrawlMetricPoint, DownloadItem } from "./types";
 import SpidersList from "./components/SpidersList";
@@ -25,12 +25,7 @@ export default function App() {
 
   // Downloads view state
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
-  const [activeTab, setActiveTab] = useState<'spiders' | 'downloads' | 'media'>('spiders');
-
-  // Disclaimer banner
-  const [disclaimerDismissed, setDisclaimerDismissed] = useState<boolean>(
-    () => localStorage.getItem('disclaimer-dismissed') === 'true'
-  );
+  const [activeTab, setActiveTab] = useState<'spiders' | 'downloads'>('spiders');
 
   // Selected state indices
   const [selectedFolderId, setSelectedFolderId] = useState("f-all");
@@ -459,60 +454,29 @@ export default function App() {
               </span>
             )}
           </button>
-
-          <button
-            onClick={() => setActiveTab('media')}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer relative ${
-              activeTab === 'media'
-                ? 'bg-slate-950 text-indigo-400 border border-slate-800'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/50'
-            }`}
-          >
-            <Library className="h-4 w-4 text-indigo-500" />
-            Media Library
-            {urls.length > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-700 text-[8px] font-mono font-bold text-slate-300 tracking-normal shadow">
-                {urls.length > 99 ? '99+' : urls.length}
-              </span>
-            )}
-          </button>
         </div>
       </div>
 
       {/* Main Grid Area */}
       <main className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
-        {/* Dismissible Warning Banner */}
-        {!disclaimerDismissed && (
-          <div className="bg-amber-950/20 border border-amber-900/40 p-4 rounded-2xl text-xs text-amber-300 leading-relaxed flex items-start gap-4">
-            <AlertCircle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="font-bold text-slate-200 mb-1">
-                PROCEED WITH ETHICAL DATA PARSING PRACTICE
-              </h4>
-              <p className="text-amber-400/90 leading-relaxed max-w-5xl">
-                This node compiles scraping agents configured with anti-scraping mitigation bypass mechanics (headers, dynamic delays, user-agents). Please utilize proper delays (<strong className="text-amber-200">&gt; 1 sec</strong>) when scrubbing heavy streaming platforms. Video URLs extracted represent streaming targets configured by user filters.
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setDisclaimerDismissed(true);
-                localStorage.setItem('disclaimer-dismissed', 'true');
-              }}
-              className="text-amber-500 hover:text-amber-300 transition-colors shrink-0 mt-0.5 cursor-pointer"
-              title="Dismiss permanently"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        {/* Dynamic Warning Alert banner for adult content scraper disclaimer */}
+        <div className="bg-amber-950/20 border border-amber-900/40 p-4 rounded-2xl text-xs text-amber-300 leading-relaxed flex items-start gap-4">
+          <AlertCircle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold text-slate-200 mb-1">
+              PROCEED WITH ETHICAL DATA PARSING PRACTICE
+            </h4>
+            <p className="text-amber-400/90 leading-relaxed max-w-5xl">
+              This node compiles scraping agents configured with anti-scraping mitigation bypass mechanics (headers, dynamic delays, user-agents). Please utilize proper delays (<strong className="text-amber-200">&gt; 1 sec</strong>) when scrubbing heavy streaming platforms. Video URLs extracted represent streaming targets configured by user filters.
+            </p>
           </div>
-        )}
+        </div>
 
-        {/* System Alert Notification Panel — only render when there are notifications */}
-        {notifications.length > 0 && (
-          <NotificationPanel 
-            notifications={notifications} 
-            onClear={handleClearNotifications} 
-          />
-        )}
+        {/* System Alert Notification Panel drawer */}
+        <NotificationPanel 
+          notifications={notifications} 
+          onClear={handleClearNotifications} 
+        />
 
         {/* Form Deployment section */}
         {showDeployForm && activeTab === 'spiders' && (
@@ -530,7 +494,7 @@ export default function App() {
         )}
 
         {/* Tab-driven layout rendering */}
-        {activeTab === 'spiders' && (
+        {activeTab === 'spiders' ? (
           <>
             {/* Dynamic Spiders active & idle grids */}
             <div className="space-y-6">
@@ -621,9 +585,7 @@ export default function App() {
               <PerformanceChart metrics={metrics} />
             </section>
           </>
-        )}
-
-        {activeTab === 'downloads' && (
+        ) : (
           <div className="animate-in fade-in duration-300">
             <DownloadCenter 
               downloads={downloads}
@@ -636,84 +598,83 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'media' && (
-          <section className="space-y-4 animate-in fade-in duration-300">
-            <div className="border-b border-indigo-950 pb-2">
-              <h3 className="font-bold text-xs tracking-widest uppercase text-indigo-400">
-                📁 INGESTED TARGETS MEDIA HARVEST REPOSITORY
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Browse video stream links classified into target folders matching custom spider criteria.
-              </p>
-            </div>
+        {/* Ingested media library shelf */}
+        <section className="space-y-4">
+          <div className="border-b border-indigo-950 pb-2">
+            <h3 className="font-bold text-xs tracking-widest uppercase text-indigo-400">
+              📁 INGESTED TARGETS MEDIA HARVEST REPOSITORY
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Browse video stream links classified into target folders matching custom spider criteria.
+            </p>
+          </div>
 
-            {/* Catalog Filters Bar */}
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Search Keywords</label>
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="e.g. beach, Eva, vacation"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-200 outline-none"
-                  />
-                  <Search className="absolute right-2.5 top-2 h-3.5 w-3.5 text-slate-500" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Target Resolution</label>
-                <select 
-                  value={resolutionFilter}
-                  onChange={e => setResolutionFilter(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-slate-300 outline-none"
-                >
-                  <option value="">All Formats & Pixels</option>
-                  <option value="1080p">1080p Full-HD</option>
-                  <option value="720p">720p HD</option>
-                  <option value="480p">480p Media Standard</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Min Duration (Mins)</label>
+          {/* Catalog Filters Bar */}
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Search Keywords</label>
+              <div className="relative">
                 <input 
-                  type="number" 
-                  value={minDurationFilter}
-                  onChange={e => setMinDurationFilter(e.target.value)}
-                  placeholder="No limit"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 outline-none"
+                  type="text" 
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="e.g. beach, Eva, vacation"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-200 outline-none"
                 />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Max Duration (Mins)</label>
-                <input 
-                  type="number" 
-                  value={maxDurationFilter}
-                  onChange={e => setMaxDurationFilter(e.target.value)}
-                  placeholder="No limit"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 outline-none"
-                />
+                <Search className="absolute right-2.5 top-2 h-3.5 w-3.5 text-slate-500" />
               </div>
             </div>
 
-            <ResultsGallery 
-              urls={urls}
-              folders={folders}
-              selectedFolderId={selectedFolderId}
-              onSelectFolder={(id) => setSelectedFolderId(id)}
-              onDeleteUrl={handleDeleteUrl}
-              onBulkCategorize={handleBulkCategorize}
-              onAddFolder={handleAddFolder}
-              onDeleteFolder={handleDeleteFolder}
-              onQueueDownload={handleQueueDownload}
-              downloadItemIds={downloads.map(dl => dl.id)}
-            />
-          </section>
-        )}
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Target Resolution</label>
+              <select 
+                value={resolutionFilter}
+                onChange={e => setResolutionFilter(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-slate-300 outline-none"
+              >
+                <option value="">All Formats & Pixels</option>
+                <option value="1080p">1080p Full-HD</option>
+                <option value="720p">720p HD</option>
+                <option value="480p">480p Media Standard</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Min Duration (Mins)</label>
+              <input 
+                type="number" 
+                value={minDurationFilter}
+                onChange={e => setMinDurationFilter(e.target.value)}
+                placeholder="No limit"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Max Duration (Mins)</label>
+              <input 
+                type="number" 
+                value={maxDurationFilter}
+                onChange={e => setMaxDurationFilter(e.target.value)}
+                placeholder="No limit"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 outline-none"
+              />
+            </div>
+          </div>
+
+          <ResultsGallery 
+            urls={urls}
+            folders={folders}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={(id) => setSelectedFolderId(id)}
+            onDeleteUrl={handleDeleteUrl}
+            onBulkCategorize={handleBulkCategorize}
+            onAddFolder={handleAddFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onQueueDownload={handleQueueDownload}
+            downloadItemIds={downloads.map(dl => dl.id)}
+          />
+        </section>
       </main>
 
       {/* Control Room Footer metrics */}
