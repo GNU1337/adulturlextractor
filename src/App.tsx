@@ -48,37 +48,37 @@ export default function App() {
   const syncData = async () => {
     setSyncing(true);
     try {
-      let queryParams = `?category=${selectedFolderId}`;
-      if (searchQuery) queryParams += `&keyword=${encodeURIComponent(searchQuery)}`;
-      if (resolutionFilter) queryParams += `&resolution=${resolutionFilter}`;
-      if (minDurationFilter) queryParams += `&minDuration=${minDurationFilter}`;
-      if (maxDurationFilter) queryParams += `&maxDuration=${maxDurationFilter}`;
+      const spRes = await fetch("/api/spiders");
+      if (spRes.ok) {
+        const data = await spRes.json();
+        setSpiders(data);
+      }
 
-      const [spRes, fRes, mRes, nRes, dlRes, uRes] = await Promise.all([
-        fetch("/api/spiders"),
-        fetch("/api/folders"),
-        fetch("/api/metrics"),
-        fetch("/api/notifications"),
-        fetch("/api/downloads"),
-        fetch(`/api/urls${queryParams}`)
-      ]);
+      const fRes = await fetch("/api/folders");
+      if (fRes.ok) {
+        const data = await fRes.json();
+        setFolders(data);
+      }
 
-      const [spData, fData, mData, nData, dlData, uData] = await Promise.all([
-        spRes.ok ? spRes.json() : Promise.resolve(null),
-        fRes.ok ? fRes.json() : Promise.resolve(null),
-        mRes.ok ? mRes.json() : Promise.resolve(null),
-        nRes.ok ? nRes.json() : Promise.resolve(null),
-        dlRes.ok ? dlRes.json() : Promise.resolve(null),
-        uRes.ok ? uRes.json() : Promise.resolve(null)
-      ]);
+      const mRes = await fetch("/api/metrics");
+      if (mRes.ok) {
+        const data = await mRes.json();
+        setMetrics(data);
+      }
 
-      if (spData) setSpiders(spData);
-      if (fData) setFolders(fData);
-      if (mData) setMetrics(mData);
-      if (nData) setNotifications(nData);
-      if (dlData) setDownloads(dlData);
-      if (uData) setUrls(uData);
+      const nRes = await fetch("/api/notifications");
+      if (nRes.ok) {
+        const data = await nRes.json();
+        setNotifications(data);
+      }
 
+      const dlRes = await fetch("/api/downloads");
+      if (dlRes.ok) {
+        const data = await dlRes.json();
+        setDownloads(data);
+      }
+
+      await fetchUrls();
     } catch (e) {
       console.error("API sync failure:", e);
     } finally {
@@ -113,39 +113,35 @@ export default function App() {
   useEffect(() => {
     syncData();
     const interval = setInterval(() => {
-      let queryParams = `?category=${selectedFolderId}`;
-      if (searchQuery) queryParams += `&keyword=${encodeURIComponent(searchQuery)}`;
-      if (resolutionFilter) queryParams += `&resolution=${resolutionFilter}`;
-      if (minDurationFilter) queryParams += `&minDuration=${minDurationFilter}`;
-      if (maxDurationFilter) queryParams += `&maxDuration=${maxDurationFilter}`;
+      // Re-fetch dynamic stats silent
+      fetch("/api/spiders")
+        .then(res => res.json())
+        .then(data => {
+          setSpiders(data);
+          // If we are currently inspecting a specific spider logs, update it
+          if (viewLogsSpider) {
+            const current = data.find((s: any) => s.config.id === viewLogsSpider.config.id);
+            if (current) setViewLogsSpider(current);
+          }
+        });
 
-      Promise.all([
-        fetch("/api/spiders").then(res => res.ok ? res.json() : null),
-        fetch("/api/metrics").then(res => res.ok ? res.json() : null),
-        fetch("/api/notifications").then(res => res.ok ? res.json() : null),
-        fetch("/api/downloads").then(res => res.ok ? res.json() : null),
-        fetch(`/api/urls${queryParams}`).then(res => res.ok ? res.json() : null)
-      ]).then(([spidersData, metricsData, notificationsData, downloadsData, urlsData]) => {
-        if (spidersData) {
-          setSpiders(spidersData);
-          setViewLogsSpider(prev => {
-            if (prev) {
-              const current = spidersData.find((s: any) => s.config.id === prev.config.id);
-              return current || prev;
-            }
-            return prev;
-          });
-        }
-        if (metricsData) setMetrics(metricsData);
-        if (notificationsData) setNotifications(notificationsData);
-        if (downloadsData) setDownloads(downloadsData);
-        if (urlsData) setUrls(urlsData);
-      }).catch(console.error);
+      fetch("/api/metrics")
+        .then(res => res.json())
+        .then(data => setMetrics(data));
 
+      fetch("/api/notifications")
+        .then(res => res.json())
+        .then(data => setNotifications(data));
+
+      fetch("/api/downloads")
+        .then(res => res.json())
+        .then(data => setDownloads(data));
+
+      fetchUrls();
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [selectedFolderId, searchQuery, resolutionFilter, minDurationFilter, maxDurationFilter]);
+  }, [selectedFolderId]);
 
   // Deploy / Update Spider Trigger
   const handleSaveSpider = async (configData: any) => {
