@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import fs from "fs";
+import os from "os";
 
 // Initialize data storage paths
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -1090,8 +1091,28 @@ async function startServer() {
     });
   }
 
-  app.listen(3000, "0.0.0.0", () => {
-    console.log("Server running on http://0.0.0.0:3000");
+  app.listen(3000, "0.0.0.0", async () => {
+    console.log("Server running on http://localhost:3000");
+    console.log("Server running on http://127.0.0.1:3000");
+
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name] || []) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          console.log(`Server running on http://${iface.address}:3000`);
+        }
+      }
+    }
+
+    try {
+      const response = await fetch("https://api.ipify.org?format=json");
+      const data = await response.json();
+      if (data.ip) {
+        console.log(`Server running on http://${data.ip}:3000`);
+      }
+    } catch (err) {
+      // Silently fail if public IP cannot be fetched
+    }
   });
 }
 
