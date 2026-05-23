@@ -292,9 +292,14 @@ setInterval(() => {
       let errorReason = spider.status.lastErrorReason;
       let errorCount = spider.status.errorCount;
       
-      const siteDomain = spider.config.targetUrls[0] 
-        ? new URL(spider.config.targetUrls[0]).hostname 
-        : DOMAIN_SAMPLES[Math.floor(Math.random() * DOMAIN_SAMPLES.length)];
+      const siteDomain = (() => {
+        try {
+          if (spider.config.targetUrls && spider.config.targetUrls[0]) {
+            return new URL(spider.config.targetUrls[0]).hostname;
+          }
+        } catch (e) {}
+        return DOMAIN_SAMPLES[Math.floor(Math.random() * DOMAIN_SAMPLES.length)];
+      })();
 
       if (additionPages > 0) {
         currentAction = `Parsing page index ${Math.floor(Math.random() * 10) + 1} on ${siteDomain}...`;

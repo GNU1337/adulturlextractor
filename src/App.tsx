@@ -105,9 +105,9 @@ export default function App() {
     fetchUrls();
   }, [selectedFolderId, searchQuery, resolutionFilter, minDurationFilter, maxDurationFilter]);
 
-  // 3. Periodic Background Sync (Polling) - Stable interval
+  // 3. Periodic Background Sync (Polling) - Separate from filters to avoid rapid resets
   useEffect(() => {
-    const interval = setInterval(() => {
+    const fetchData = () => {
       // Re-fetch dynamic stats silent without triggering the global 'syncing' spinner
       fetch("/api/spiders")
         .then(res => res.json())
@@ -135,10 +135,15 @@ export default function App() {
       if (activeTab === 'videos') {
         fetchUrls().catch(() => {});
       }
-    }, 4000);
+    };
+
+    // Initial silent fetch to ensure up-to-date state after tab switches or log selection
+    fetchData();
+
+    const interval = setInterval(fetchData, 5000);
 
     return () => clearInterval(interval);
-  }, [activeTab, viewLogsSpider?.config.id, selectedFolderId, searchQuery, resolutionFilter, minDurationFilter, maxDurationFilter]);
+  }, [activeTab, viewLogsSpider?.config.id]);
 
   // Deploy / Update Spider Trigger
   const handleSaveSpider = async (configData: any) => {
@@ -393,10 +398,12 @@ export default function App() {
 
           <button 
             onClick={() => {
-              setEditingConfig(null);
-              setShowDeployForm(true);
-              setActiveTab('spiders');
-              window.scrollTo({ top: 0, behavior: "smooth" });
+              if (!showDeployForm || editingConfig !== null) {
+                setEditingConfig(null);
+                setShowDeployForm(true);
+                setActiveTab('spiders');
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
             }}
             className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg tracking-wider uppercase transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
           >
@@ -461,7 +468,7 @@ export default function App() {
 
         {/* Form Deployment section */}
         {showDeployForm && activeTab === 'spiders' && (
-          <div className="animate-in fade-in slide-in-from-top duration-300">
+          <div key={editingConfig?.id || "create-form"} className="animate-in fade-in slide-in-from-top duration-300">
             <SpiderForm 
               folders={folders}
               editingConfig={editingConfig}
